@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
-use std::io::{self, Read};
+use std::io::Read; // Removido o 'self' que causava o warning
 
 use ratatui::{
     backend::CrosstermBackend,
@@ -50,18 +50,20 @@ fn main() -> Result<()> {
     if cli.tui {
         run_tui_mode(&client, &server, ping, cli.duration)?;
     } else {
-        println!("\n========================================");
+        // BORDA PADRONIZADA 44 CHARS
+        println!("\n==================================================");
         println!(" Servidor : {} ({})", server.sponsor, server.name);
         println!(" Ping     : {:.1} ms", ping);
-        println!("========================================");
+        println!("==================================================");
         
+        println!(""); 
         let (dl_mbps, _) = run_cli_test(&client, &server.url, cli.duration, true)?;
         let (ul_mbps, _) = run_cli_test(&client, &server.url, cli.duration, false)?;
         
-        println!("\n========================================");
+        println!("\n==================================================");
         println!(" 📊 RESULTADOS");
         println!(" DL: {:.2} Mbps | UL: {:.2} Mbps", dl_mbps, ul_mbps);
-        println!("========================================\n");
+        println!("==================================================\n");
     }
 
     Ok(())
@@ -75,13 +77,12 @@ fn strip_path(url: &str) -> String {
 fn run_cli_test(client: &Client, base_url: &str, duration: u64, is_dl: bool) -> Result<(f64, usize)> {
     let label = if is_dl { "DL" } else { "UL" };
     
-    // BARRA CURTA (20 chars) e TUDO NA MESMA LINHA
     let pb = ProgressBar::new(duration * 10);
     pb.set_style(ProgressStyle::default_bar()
-        .template("{prefix} [{bar:20.cyan/blue}] {percent}% {msg}")?
+        .template(" {prefix} [{bar:18.cyan/blue}] {percent}% {msg}")?
         .progress_chars("#>-"));
     
-    pb.set_prefix(format!(" {}", label));
+    pb.set_prefix(label);
     pb.set_message("0.00 Mbps");
 
     let base = strip_path(base_url);
@@ -136,10 +137,9 @@ fn run_cli_test(client: &Client, base_url: &str, duration: u64, is_dl: bool) -> 
     Ok((final_mbps, total_bytes.load(Ordering::Relaxed) as usize))
 }
 
-// --- MANTENDO TUI ---
 fn run_tui_mode(client: &Client, server: &OoklaServer, ping: f64, duration: u64) -> Result<()> {
     enable_raw_mode()?;
-    let mut stdout = io::stdout();
+    let mut stdout = std::io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
