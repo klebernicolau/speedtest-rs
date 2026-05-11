@@ -14,8 +14,8 @@ struct Cli {
 }
 
 const OOKLA_SERVERS_URL: &str = "https://www.speedtest.net/api/js/servers?engine=js";
-const DOWNLOAD_SIZE: usize = 25_000_000; 
-const UPLOAD_CHUNK: usize = 1_048_576; 
+const DOWNLOAD_SIZE: usize = 500_000_000; 
+const UPLOAD_CHUNK: usize = 8_388_608; 
 
 struct OoklaServer {
     url: String,
@@ -94,7 +94,7 @@ fn test_process(client: &Client, base_url: &str, duration: u64, is_dl: bool) -> 
             while r.load(Ordering::Relaxed) {
                 if is_dl {
                     if let Ok(mut resp) = c.get(&url).send() {
-                        let mut buf = [0u8; 16384];
+                        let mut buf = [0u8; 65536];
                         while let Ok(n) = std::io::Read::read(&mut resp, &mut buf) {
                             if n == 0 || !r.load(Ordering::Relaxed) { break; }
                             t.fetch_add(n as u64, Ordering::Relaxed);
