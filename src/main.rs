@@ -79,7 +79,6 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    // MODO PADRÃO (Backup Original)
     println!("  Servidor : {} ({})", server.sponsor, server.name);
     let (dl_mbps, _) = test_process(&client, &server.url, cli.duration, true)?;
     let (ul_mbps, _) = test_process(&client, &server.url, cli.duration, false)?;
@@ -101,7 +100,7 @@ fn test_process(client: &Client, base_url: &str, duration: u64, is_dl: bool) -> 
         let c = client.clone();
         let url = if is_dl { format!("{}/download?size={}", base_path, DOWNLOAD_SIZE) } else { format!("{}/upload", base_path) };
         handles.push(thread::spawn(move || {
-            let mut buf = [0u8; 65536]; // Buffer 64KB
+            let mut buf = [0u8; 65536]; 
             while r.load(Ordering::Relaxed) {
                 if is_dl {
                     if let Ok(mut resp) = c.get(&url).send() {
@@ -144,7 +143,6 @@ fn run_tui_mode(client: &Client, server: &OoklaServer, ping: f64, duration: u64)
     let ul_progress = Arc::new(AtomicU64::new(0));
     let is_finished = Arc::new(AtomicBool::new(false));
 
-    // Clonando ARCs para a thread de teste
     let t_dl_mbps = Arc::clone(&dl_mbps);
     let t_ul_mbps = Arc::clone(&ul_mbps);
     let t_dl_progress = Arc::clone(&dl_progress);
@@ -174,36 +172,33 @@ fn run_tui_mode(client: &Client, server: &OoklaServer, ping: f64, duration: u64)
                 .split(f.size());
 
             let header = Paragraph::new(format!(" Auditoria: {} | Host: {} | Ping: {:.1}ms", server.sponsor, server.name, ping))
-                .block(Block::default().borders(Borders::ALL).title(" Speedtest-RS Auditoria Permanente "));
+                .block(Block::default().borders(Borders::ALL).title(" Speedtest-RS Auditoria "));
 
             let dl_val = dl_mbps.load(Ordering::Relaxed) as f64 / 100.0;
             let dl_gauge = Gauge::default()
                 .block(Block::default().borders(Borders::ALL).title(format!(" 📥 Download: {:.2} Mbps ", dl_val)))
-                .gauge_style(Style::default().fg(Color::Cyan))
+                .gauge_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
                 .ratio((dl_progress.load(Ordering::Relaxed) as f64 / 100.0).min(1.0));
 
             let ul_val = ul_mbps.load(Ordering::Relaxed) as f64 / 100.0;
             let ul_gauge = Gauge::default()
                 .block(Block::default().borders(Borders::ALL).title(format!(" 📤 Upload: {:.2} Mbps ", ul_val)))
-                .gauge_style(Style::default().fg(Color::Green))
+                .gauge_style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
                 .ratio((ul_progress.load(Ordering::Relaxed) as f64 / 100.0).min(1.0));
 
             let status = if is_finished.load(Ordering::SeqCst) {
-                " [ AUDITORIA CONCLUÍDA ] - Pressione Ctrl+C para sair."
+                " [ AUDITORIA FINALIZADA ] - Pressione Ctrl+C para sair."
             } else {
-                " [ EXECUTANDO TESTES... ] - Use Ctrl+C para interromper."
+                " [ PROCESSANDO ENGINE 64KB... ] "
             };
             
-            let footer = Paragraph::new(status)
-                .style(Style::default().add_modifier(Modifier::BOLD));
-
             f.render_widget(header, chunks[0]);
             f.render_widget(dl_gauge, chunks[1]);
             f.render_widget(ul_gauge, chunks[2]);
-            f.render_widget(footer, chunks[3]);
+            f.render_widget(Paragraph::new(status), chunks[3]);
         })?;
 
-        if event::poll(Duration::from_millis(100))? {
+        if event::poll(Duration::from_millis(200))? {
             if let Event::Key(key) = event::read()? {
                 if key.code == KeyCode::Char('c') && key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
                     break;
@@ -250,16 +245,25 @@ fn test_process_tui(client: &Client, base_url: &str, duration: u64, is_dl: bool,
     }
 
     while start.elapsed().as_secs() < duration {
+        thread::sleep(Duration::from_millis(500));
         let bytes = total_bytes.load(Ordering::Relaxed);
-        let mbps = (bytes as f64 * 8.0 / start.elapsed().as_secs_f64()) / 1_000_000.0;
-        mbps_atom.store((mbps * 100.0) as u64, Ordering::Relaxed);
-        prog_atom.store(((start.elapsed().as_secs_f64() / duration as f64) * 100.0) as u64, Ordering::Relaxed);
-        thread::sleep(Duration::from_millis(100));
+        let elapsed = start.elapsed().as_secs_f64();
+        if elapsed > 0.1 {
+            let mbps = (bytes as f64 * 8.0 / elapsed) / 1_000_000.0;
+            mbps_atom.store((mbps * 100.0) as u64, Ordering::Relaxed);
+        }
+        prog_atom.store(((elapsed / duration as f64) * 100.0) as u64, Ordering::Relaxed);
     }
 
     running.store(false, Ordering::SeqCst);
     for h in handles { let _ = h.join(); }
-    prog_atom.store(100, Ordering::Relaxed);
+    
+    // Ajuste final para precisão máxima após join das threads
+    let final_bytes = total_bytes.load(Ordering::Relaxed);
+    let final_mbps = (final_bytes as f64 * 8.0 / start.elapsed().as_secs_f64()) / 1_000_000.0;
+    mbps_atom.store((final_mbps * 100.0) as u64, Ordering::SeqCst);
+    prog_atom.store(100, Ordering::SeqCst);
+    
     Ok(())
 }
 
