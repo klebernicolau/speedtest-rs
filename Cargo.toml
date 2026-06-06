@@ -1,5 +1,5 @@
 [package]
-name = "speedtest-rs"
+name = "speedtest-auditor"
 version = "0.1.0"
 edition = "2021"
 description = "Speedtest CLI com TUI, ping com jitter e output JSON/CSV"

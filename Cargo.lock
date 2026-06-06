@@ -1487,7 +1487,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "speedtest-rs"
+name = "speedtest-auditor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
