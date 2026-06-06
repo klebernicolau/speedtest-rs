@@ -1487,8 +1487,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "speedtest_rs"
-version = "2.0.0"
+name = "speedtest-rs"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
